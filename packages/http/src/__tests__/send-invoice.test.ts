@@ -229,6 +229,7 @@ describe('KsefHttpClient.sendInvoice full flow', () => {
       environment: 'test',
       baseUrl: BASE,
       publicKeyPem: publicPem,
+      symmetricKeyPem: publicPem,
       fetchImpl,
       retry: { maxAttempts: 1 },
     })
@@ -245,6 +246,7 @@ describe('KsefHttpClient.sendInvoice full flow', () => {
     })
 
     expect(result.ksefReferenceNumber).toBe('KSEF-REF-456')
+    expect(result.onlineSessionReferenceNumber).toBe('SESSION-REF-123')
     expect(result.timestamp).toBeDefined()
     expect(new Date(result.timestamp).getTime()).toBeLessThanOrEqual(Date.now())
   })
@@ -288,6 +290,7 @@ describe('KsefHttpClient.sendInvoice full flow', () => {
       environment: 'test',
       baseUrl: BASE,
       publicKeyPem: publicPem,
+      symmetricKeyPem: publicPem,
       fetchImpl,
       retry: { maxAttempts: 1 },
     })

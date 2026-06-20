@@ -6,6 +6,6 @@ describe('list command', () => {
     const program = createProgram()
     const cmd = program.commands.find((c) => c.name() === 'list')
     expect(cmd).toBeDefined()
-    expect(cmd!.description()).toBe('List invoices you issued (seller role)')
+    expect(cmd!.description()).toBe('Fetch invoices from KSeF (seller role)')
   })
 })

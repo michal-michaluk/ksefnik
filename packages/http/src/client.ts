@@ -80,8 +80,7 @@ export class KsefHttpClient implements KsefClient {
   private readonly retryOpts: HttpRetryOptions
   private cachedPublicKeyPem: string | undefined
   private cachedSymmetricKeyPem: string | undefined
-  /** Maps auth session reference → online session reference for UPO retrieval. */
-  private readonly onlineSessions = new Map<string, string>()
+
 
   constructor(private readonly opts: KsefHttpClientOptions) {
     const baseUrl = opts.baseUrl ?? ENDPOINTS[opts.environment]
@@ -134,13 +133,11 @@ export class KsefHttpClient implements KsefClient {
     }
   }
 
-  async terminateSession(token: string): Promise<void> {
+  async terminateSession(token: string, onlineSessionReferenceNumber?: string): Promise<void> {
     const session = decodeSessionToken(token)
     if (!session) return
-    const onlineRef = session.referenceNumber ? this.onlineSessions.get(session.referenceNumber) : undefined
-    if (onlineRef) {
-      await closeOnlineSession(this.http, session.accessToken, onlineRef).catch(() => {})
-      this.onlineSessions.delete(session.referenceNumber)
+    if (onlineSessionReferenceNumber) {
+      await closeOnlineSession(this.http, session.accessToken, onlineSessionReferenceNumber).catch(() => {})
     }
     await revokeCurrentSession(this.http, session)
   }
@@ -204,7 +201,7 @@ export class KsefHttpClient implements KsefClient {
   async sendInvoice(params: {
     token: string
     xml: string
-  }): Promise<{ ksefReferenceNumber: string; timestamp: string }> {
+  }): Promise<{ ksefReferenceNumber: string; timestamp: string; onlineSessionReferenceNumber: string }> {
     let session = decodeSessionToken(params.token)
     if (!session) {
       throw new Error(
@@ -241,9 +238,6 @@ export class KsefHttpClient implements KsefClient {
       this.retryOpts,
     )
 
-    // Store mapping: auth session ref → online session ref for UPO retrieval
-    this.onlineSessions.set(session.referenceNumber, openResult.referenceNumber)
-
     const sendResult = await withHttpRetry(
       () => sendOnlineInvoice(this.http, session!.accessToken, openResult.referenceNumber, {
         invoiceHash,
@@ -262,6 +256,7 @@ export class KsefHttpClient implements KsefClient {
 
     return {
       ksefReferenceNumber: sendResult.referenceNumber,
+      onlineSessionReferenceNumber: openResult.referenceNumber,
       timestamp: new Date().toISOString(),
     }
   }
@@ -269,6 +264,7 @@ export class KsefHttpClient implements KsefClient {
   async getUpo(params: {
     token: string
     ksefReferenceNumber: string
+    onlineSessionReferenceNumber: string
   }): Promise<{ xml: string; status: 'confirmed' | 'pending' | 'rejected' }> {
     let session = decodeSessionToken(params.token)
     if (!session) {
@@ -281,21 +277,12 @@ export class KsefHttpClient implements KsefClient {
       )
     }
 
-    const onlineSessionRef = this.onlineSessions.get(session.referenceNumber)
-    if (!onlineSessionRef) {
-      throw new Error(
-        'No online session reference available. Call sendInvoice first ' +
-        '(to create an interactive session) before calling getUpo.',
-      )
-    }
-
     try {
-      // First, get invoice status which includes upoDownloadUrl and ksefNumber
       const invoiceStatus = await withHttpRetry(
         () =>
           fetchInvoiceStatus(this.http, {
             accessToken: session!.accessToken,
-            sessionReferenceNumber: onlineSessionRef,
+            sessionReferenceNumber: params.onlineSessionReferenceNumber,
             invoiceReferenceNumber: params.ksefReferenceNumber,
           }),
         this.retryOpts,
@@ -307,7 +294,6 @@ export class KsefHttpClient implements KsefClient {
         console.error('[ksef-debug] invoice status:', JSON.stringify(invoiceStatus))
       }
 
-      // If we have a pre-signed download URL, fetch UPO directly from it
       if (invoiceStatus.upoDownloadUrl) {
         const response = await this.http.request<string>({
           method: 'GET',
@@ -318,7 +304,6 @@ export class KsefHttpClient implements KsefClient {
         return { xml: response, status: mapStatus }
       }
 
-      // No download URL yet — invoice still processing
       return { xml: '', status: mapStatus }
     } catch (error: unknown) {
       if (error instanceof KsefApiError && error.detailCode === '21178') {

@@ -29,7 +29,7 @@ export interface KsefRawInvoice {
 
 export interface KsefClient {
   initSession(config: KsefClientConfig): Promise<KsefSessionState>
-  terminateSession(token: string): Promise<void>
+  terminateSession(token: string, onlineSessionReferenceNumber?: string): Promise<void>
   fetchInvoices(params: {
     token: string
     dateFrom: string
@@ -43,9 +43,10 @@ export interface KsefClient {
   sendInvoice(params: {
     token: string
     xml: string
-  }): Promise<{ ksefReferenceNumber: string; timestamp: string }>
+  }): Promise<{ ksefReferenceNumber: string; timestamp: string; onlineSessionReferenceNumber: string }>
   getUpo(params: {
     token: string
     ksefReferenceNumber: string
+    onlineSessionReferenceNumber: string
   }): Promise<{ xml: string; status: 'confirmed' | 'pending' | 'rejected' }>
 }

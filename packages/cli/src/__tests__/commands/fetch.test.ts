@@ -6,6 +6,6 @@ describe('fetch command', () => {
     const program = createProgram()
     const fetchCmd = program.commands.find((c) => c.name() === 'fetch')
     expect(fetchCmd).toBeDefined()
-    expect(fetchCmd!.description()).toBe('Fetch invoices from KSeF')
+    expect(fetchCmd!.description()).toBe('Fetch invoices from KSeF (buyer role)')
   })
 })

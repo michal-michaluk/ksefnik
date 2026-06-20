@@ -10,6 +10,7 @@ import type { KsefClient, KsefClientConfig, KsefSessionState } from './types.js'
 
 export class KsefAdapterImpl implements KsefAdapter {
   private session: KsefSessionState | null = null
+  private onlineSessionRef: string | null = null
 
   constructor(
     private readonly client: KsefClient,
@@ -22,8 +23,9 @@ export class KsefAdapterImpl implements KsefAdapter {
 
   async closeSession(): Promise<void> {
     if (this.session) {
-      await this.client.terminateSession(this.session.token)
+      await this.client.terminateSession(this.session.token, this.onlineSessionRef ?? undefined)
       this.session = null
+      this.onlineSessionRef = null
     }
   }
 
@@ -78,6 +80,8 @@ export class KsefAdapterImpl implements KsefAdapter {
       xml: input.xml,
     })
 
+    this.onlineSessionRef = result.onlineSessionReferenceNumber
+
     return {
       ksefReference: result.ksefReferenceNumber,
       timestamp: result.timestamp,
@@ -86,9 +90,13 @@ export class KsefAdapterImpl implements KsefAdapter {
 
   async getUpo(ksefReference: string): Promise<UpoResult> {
     const session = await this.ensureSession()
+    if (!this.onlineSessionRef) {
+      throw new Error('No online session available. Call sendInvoice first before getUpo.')
+    }
     const result = await this.client.getUpo({
       token: session.token,
       ksefReferenceNumber: ksefReference,
+      onlineSessionReferenceNumber: this.onlineSessionRef,
     })
 
     return {

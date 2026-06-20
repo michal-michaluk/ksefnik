@@ -69,6 +69,28 @@ apps/
 | `pnpm build` | Build all packages |
 | `pnpm test` | Run Vitest |
 | `pnpm typecheck` | Type-check all packages |
+| `pnpm smoke` | Smoke test against KSeF test environment (requires `.env` with credentials — see `docs/spec/send-invoice-interactive-session.md`) |
+
+## Documentation Reference
+
+Always read the relevant architecture docs before writing code — they encode project-wide conventions and design decisions. Pick from this list based on what you're implementing:
+
+- **docs/01-monorepo-structure.md** — read before adding a package or moving code between packages
+- **docs/02-sdk-facade-pattern.md** — read before exposing new functionality through the SDK
+- **docs/03-thin-wrapper-architecture.md** — read before writing CLI, MCP, or any delivery layer
+- **docs/04-zod-domain-models.md** — read before defining a new domain model or schema
+- **docs/05-money-as-integers.md** — read before handling any monetary amount
+- **docs/06-typed-error-hierarchy.md** — read before throwing or catching errors
+- **docs/07-ksef-adapter-pattern.md** — read before adding a new adapter or modifying KSeF integration
+- **docs/08-storage-interface.md** — read before persisting or querying data
+- **docs/09-bank-parser-strategy.md** — read before adding a bank format parser
+- **docs/10-reconciliation-pipeline.md** — read before adding a matching strategy or pass
+- **docs/11-plugin-system.md** — read before adding a plugin or extensibility point
+- **docs/12-validation-rules-engine.md** — read before adding a validation rule
+- **docs/13-testing-patterns.md** — read before writing tests
+- **docs/14-cli-design.md** — read before adding a CLI command
+- **docs/15-mcp-server-design.md** — read before adding an MCP tool
+- **docs/16-http-client-architecture.md** — read before implementing any KSeF HTTP call
 
 ## What NOT to do
 

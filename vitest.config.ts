@@ -1,5 +1,9 @@
 import { defineConfig } from 'vitest/config'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+
+const cliPkg = JSON.parse(readFileSync(resolve(__dirname, 'packages/cli/package.json'), 'utf8'))
+const cliVersion = JSON.stringify(cliPkg.version)
 
 export default defineConfig({
   test: {
@@ -10,6 +14,9 @@ export default defineConfig({
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
           globals: true,
+        },
+        define: {
+          CLI_VERSION: cliVersion,
         },
         resolve: {
           alias: {
