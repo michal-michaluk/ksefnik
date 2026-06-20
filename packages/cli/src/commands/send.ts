@@ -1,5 +1,5 @@
 import type { Command } from 'commander'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { createKsefnik } from '@ksefnik/core'
 import { resolveAdapter, resolveConfig, type CliGlobalOpts } from '../utils/config.js'
 import { output } from '../utils/output.js'
@@ -30,7 +30,8 @@ export function registerSendCommand(program: Command): void {
     .description('Send invoice XML to KSeF')
     .option('--format <format>', 'Output format: json|text', 'json')
     .option('--upo', 'Fetch UPO after sending (use --no-upo to skip)', true)
-    .action(async (filePath: string, opts: { format: string; upo: boolean }) => {
+    .option('--save-upo <path>', 'Save UPO XML to file')
+    .action(async (filePath: string, opts: { format: string; upo: boolean; saveUpo?: string }) => {
       const globalOpts = program.opts<CliGlobalOpts>()
       const config = resolveConfig(globalOpts)
       const adapter = resolveAdapter(globalOpts, config)
@@ -49,9 +50,13 @@ export function registerSendCommand(program: Command): void {
       if (opts.upo) {
         const upo = await fetchUpoWithRetry(ksef, result.ksefReference)
         if (upo) {
+          if (opts.saveUpo && upo.upoXml) {
+            writeFileSync(opts.saveUpo, upo.upoXml, 'utf-8')
+          }
           if (opts.format === 'text') {
             console.log(`UPO status: ${upo.status}`)
             if (upo.upoXml) console.log(`UPO size: ${upo.upoXml.length} bytes`)
+            if (opts.saveUpo) console.log(`UPO saved: ${opts.saveUpo}`)
           } else {
             output(upo)
           }
