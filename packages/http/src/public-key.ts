@@ -31,6 +31,24 @@ export async function fetchPublicKeyCertificates(
   return response.items ?? []
 }
 
+function fetchCertByUsage(
+  certs: PublicKeyCertificate[],
+  usage: 'KsefTokenEncryption' | 'SymmetricKeyEncryption',
+  errorCode: string,
+  errorMessage: string,
+): string {
+  const now = new Date()
+  const candidate =
+    certs.find((c) => c.usage.includes(usage) && isActive(c, now)) ??
+    certs.find((c) => c.usage.includes(usage))
+
+  if (!candidate) {
+    throw new KsefApiError(errorMessage, undefined, undefined, errorCode)
+  }
+
+  return base64ToCertPem(candidate.certificate)
+}
+
 export async function fetchKsefTokenEncryptionKey(http: HttpClient): Promise<string> {
   const certs = await fetchPublicKeyCertificates(http)
   if (certs.length === 0) {
@@ -41,20 +59,28 @@ export async function fetchKsefTokenEncryptionKey(http: HttpClient): Promise<str
       'NO_PUBLIC_KEY',
     )
   }
+  return fetchCertByUsage(
+    certs,
+    'KsefTokenEncryption',
+    'NO_TOKEN_ENCRYPTION_KEY',
+    'No KsefTokenEncryption certificate available from KSeF public-key-certificates endpoint',
+  )
+}
 
-  const now = new Date()
-  const candidate =
-    certs.find((c) => c.usage.includes('KsefTokenEncryption') && isActive(c, now)) ??
-    certs.find((c) => c.usage.includes('KsefTokenEncryption'))
-
-  if (!candidate) {
+export async function fetchSymmetricKeyEncryptionKey(http: HttpClient): Promise<string> {
+  const certs = await fetchPublicKeyCertificates(http)
+  if (certs.length === 0) {
     throw new KsefApiError(
-      'No KsefTokenEncryption certificate available from KSeF public-key-certificates endpoint',
+      'KSeF public-key-certificates endpoint returned no certificates',
       undefined,
       undefined,
-      'NO_TOKEN_ENCRYPTION_KEY',
+      'NO_PUBLIC_KEY',
     )
   }
-
-  return base64ToCertPem(candidate.certificate)
+  return fetchCertByUsage(
+    certs,
+    'SymmetricKeyEncryption',
+    'NO_SYMMETRIC_KEY',
+    'No SymmetricKeyEncryption certificate available from KSeF public-key-certificates endpoint',
+  )
 }

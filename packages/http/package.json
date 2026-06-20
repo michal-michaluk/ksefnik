@@ -70,15 +70,19 @@
     "generate": "openapi-typescript https://api.ksef.mf.gov.pl/docs/v2/openapi.json -o src/generated/ksef-api.ts --alphabetize --export-type"
   },
   "dependencies": {
-    "@ksefnik/shared": "workspace:^",
     "@ksefnik/core": "workspace:^",
-    "fast-xml-parser": "^4.5.0"
+    "@ksefnik/shared": "workspace:^",
+    "@xmldom/xmldom": "^0.8.13",
+    "fast-xml-parser": "^4.5.0",
+    "node-forge": "^1.4.0",
+    "xadesjs": "^2.6.7"
   },
   "devDependencies": {
     "@types/node": "^22",
-    "typescript": "^5.7",
-    "vitest": "^3.2",
+    "@types/node-forge": "^1.3.14",
     "msw": "^2.7.0",
-    "openapi-typescript": "^7.4.4"
+    "openapi-typescript": "^7.4.4",
+    "typescript": "^5.7",
+    "vitest": "^3.2"
   }
 }

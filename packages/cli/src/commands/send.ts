@@ -1,7 +1,7 @@
 import type { Command } from 'commander'
 import { readFileSync } from 'node:fs'
 import { createKsefnik } from '@ksefnik/core'
-import { resolveConfig, type CliGlobalOpts } from '../utils/config.js'
+import { resolveAdapter, resolveConfig, type CliGlobalOpts } from '../utils/config.js'
 import { output } from '../utils/output.js'
 
 export function registerSendCommand(program: Command): void {
@@ -12,7 +12,8 @@ export function registerSendCommand(program: Command): void {
     .action(async (filePath: string, opts: { format: string }) => {
       const globalOpts = program.opts<CliGlobalOpts>()
       const config = resolveConfig(globalOpts)
-      const ksef = createKsefnik({ config })
+      const adapter = resolveAdapter(globalOpts, config)
+      const ksef = createKsefnik({ config, adapter })
 
       const xml = readFileSync(filePath, 'utf-8')
       const result = await ksef.invoices.send({ xml, nip: config.nip })

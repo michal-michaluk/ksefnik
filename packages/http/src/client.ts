@@ -16,9 +16,11 @@ import {
   type ActiveSession,
 } from './session.js'
 import { fetchInvoices as fetchInvoicesHttp, fetchInvoiceXml as fetchInvoiceXmlHttp } from './invoices.js'
-import { fetchUpoXml } from './upo.js'
+import { fetchInvoiceStatus, upoStatusFromCode } from './upo.js'
+import { generateAesKey, encryptAes256Cbc, sha256Base64, encryptSymmetricKeyWithRsaOaep } from './crypto.js'
+import { openOnlineSession, sendOnlineInvoice, closeOnlineSession } from './send-invoice.js'
 import { KsefApiError } from './errors.js'
-import { fetchKsefTokenEncryptionKey } from './public-key.js'
+import { fetchKsefTokenEncryptionKey, fetchSymmetricKeyEncryptionKey } from './public-key.js'
 
 export interface KsefHttpClientOptions {
   environment: KsefEnvironment
@@ -28,6 +30,12 @@ export interface KsefHttpClientOptions {
    * on first `initSession()` call and caches it for the lifetime of the client.
    */
   publicKeyPem?: string
+  /**
+   * MF RSA public key in PEM/SPKI format used for invoice symmetric key encryption.
+   * If omitted, the client auto-fetches it from `GET /security/public-key-certificates`
+   * on first `sendInvoice()` call and caches it for the lifetime of the client.
+   */
+  symmetricKeyPem?: string
   baseUrl?: string
   fetchImpl?: typeof fetch
   userAgent?: string
@@ -71,6 +79,9 @@ export class KsefHttpClient implements KsefClient {
   private readonly http: HttpClient
   private readonly retryOpts: HttpRetryOptions
   private cachedPublicKeyPem: string | undefined
+  private cachedSymmetricKeyPem: string | undefined
+  /** Maps auth session reference → online session reference for UPO retrieval. */
+  private readonly onlineSessions = new Map<string, string>()
 
   constructor(private readonly opts: KsefHttpClientOptions) {
     const baseUrl = opts.baseUrl ?? ENDPOINTS[opts.environment]
@@ -82,12 +93,20 @@ export class KsefHttpClient implements KsefClient {
     })
     this.retryOpts = opts.retry ?? {}
     this.cachedPublicKeyPem = opts.publicKeyPem
+    this.cachedSymmetricKeyPem = opts.symmetricKeyPem
   }
 
   private async resolvePublicKey(): Promise<string> {
     if (this.cachedPublicKeyPem) return this.cachedPublicKeyPem
     const pem = await fetchKsefTokenEncryptionKey(this.http)
     this.cachedPublicKeyPem = pem
+    return pem
+  }
+
+  private async resolveSymmetricKey(): Promise<string> {
+    if (this.cachedSymmetricKeyPem) return this.cachedSymmetricKeyPem
+    const pem = await fetchSymmetricKeyEncryptionKey(this.http)
+    this.cachedSymmetricKeyPem = pem
     return pem
   }
 
@@ -177,10 +196,77 @@ export class KsefHttpClient implements KsefClient {
     )
   }
 
-  async sendInvoice(): Promise<{ ksefReferenceNumber: string; timestamp: string }> {
-    throw new Error(
-      'KsefHttpClient.sendInvoice: not implemented in HTTP client MVP — see http_plan.md §H05.5',
+  async sendInvoice(params: {
+    token: string
+    xml: string
+  }): Promise<{ ksefReferenceNumber: string; timestamp: string }> {
+    let session = decodeSessionToken(params.token)
+    if (!session) {
+      throw new Error(
+        'KsefHttpClient.sendInvoice: invalid session token — expected the opaque ' +
+        'string returned by initSession()',
+      )
+    }
+    if (shouldRefresh(session)) {
+      session = await withHttpRetry(
+        () => refreshAccessToken(this.http, session as ActiveSession),
+        this.retryOpts,
+      )
+    }
+
+    const symmetricKeyPem = await this.resolveSymmetricKey()
+    const { key, iv } = generateAesKey()
+    const xmlBytes = Buffer.from(params.xml, 'utf8')
+    const encryptedXml = encryptAes256Cbc(xmlBytes, key, iv)
+    const invoiceHash = sha256Base64(xmlBytes)
+    const encryptedInvoiceHash = sha256Base64(encryptedXml)
+
+    const openResult = await withHttpRetry(
+      () => openOnlineSession(this.http, session!.accessToken, {
+        formCode: {
+          systemCode: 'FA (3)',
+          schemaVersion: '1-0E',
+          value: 'FA',
+        },
+        encryption: {
+          encryptedSymmetricKey: encryptSymmetricKeyWithRsaOaep(key, symmetricKeyPem),
+          initializationVector: iv.toString('base64'),
+        },
+      }),
+      this.retryOpts,
     )
+
+    // Store mapping: auth session ref → online session ref for UPO retrieval
+    this.onlineSessions.set(session.referenceNumber, openResult.referenceNumber)
+
+    const sendResult = await withHttpRetry(
+      () => sendOnlineInvoice(this.http, session!.accessToken, openResult.referenceNumber, {
+        invoiceHash,
+        invoiceSize: xmlBytes.length,
+        encryptedInvoiceHash,
+        encryptedInvoiceSize: encryptedXml.length,
+        encryptedInvoiceContent: encryptedXml.toString('base64'),
+        offlineMode: false,
+      }),
+      this.retryOpts,
+    )
+
+    if (process.env['KSEF_DEBUG']) {
+      console.error('[ksef-debug] closing online session...')
+    }
+    closeOnlineSession(this.http, session!.accessToken, openResult.referenceNumber).catch((err: unknown) => {
+      if (process.env['KSEF_DEBUG']) {
+        console.error('[ksef-debug] closeOnlineSession failed (non-fatal):', err instanceof Error ? err.message : err)
+      }
+    })
+    if (process.env['KSEF_DEBUG']) {
+      console.error('[ksef-debug] returning send result...')
+    }
+
+    return {
+      ksefReferenceNumber: sendResult.referenceNumber,
+      timestamp: new Date().toISOString(),
+    }
   }
 
   async getUpo(params: {
@@ -198,21 +284,46 @@ export class KsefHttpClient implements KsefClient {
       )
     }
 
-    // Try fetching UPO XML directly. If the invoice is still processing,
-    // KSeF returns 400 with code 21178 — we catch that and return 'pending'.
+    const onlineSessionRef = this.onlineSessions.get(session.referenceNumber)
+    if (!onlineSessionRef) {
+      throw new Error(
+        'No online session reference available. Call sendInvoice first ' +
+        '(to create an interactive session) before calling getUpo.',
+      )
+    }
+
     try {
-      const xml = await withHttpRetry(
+      // First, get invoice status which includes upoDownloadUrl and ksefNumber
+      const invoiceStatus = await withHttpRetry(
         () =>
-          fetchUpoXml(this.http, {
+          fetchInvoiceStatus(this.http, {
             accessToken: session!.accessToken,
-            sessionReferenceNumber: session!.referenceNumber,
-            ksefNumber: params.ksefReferenceNumber,
+            sessionReferenceNumber: onlineSessionRef,
+            invoiceReferenceNumber: params.ksefReferenceNumber,
           }),
         this.retryOpts,
       )
-      return { xml, status: 'confirmed' }
+
+      const mapStatus = upoStatusFromCode(invoiceStatus.statusCode)
+
+      if (process.env['KSEF_DEBUG']) {
+        console.error('[ksef-debug] invoice status:', JSON.stringify(invoiceStatus))
+      }
+
+      // If we have a pre-signed download URL, fetch UPO directly from it
+      if (invoiceStatus.upoDownloadUrl) {
+        const response = await this.http.request<string>({
+          method: 'GET',
+          url: invoiceStatus.upoDownloadUrl,
+          responseType: 'text',
+          headers: {},
+        })
+        return { xml: response, status: mapStatus }
+      }
+
+      // No download URL yet — invoice still processing
+      return { xml: '', status: mapStatus }
     } catch (error: unknown) {
-      // KSeF returns 400 with code 21178 when UPO is not yet available
       if (error instanceof KsefApiError && error.detailCode === '21178') {
         return { xml: '', status: 'pending' }
       }
