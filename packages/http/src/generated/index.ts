@@ -34,6 +34,14 @@ export type KsefInvoiceMetadata = Schemas['InvoiceMetadata']
 export type KsefInvoiceMetadataBuyer = Schemas['InvoiceMetadataBuyer']
 export type KsefInvoiceMetadataSeller = Schemas['InvoiceMetadataSeller']
 
+// Interactive session
+export type KsefOpenOnlineSessionRequest = Schemas['OpenOnlineSessionRequest']
+export type KsefOpenOnlineSessionResponse = Schemas['OpenOnlineSessionResponse']
+export type KsefSendInvoiceRequest = Schemas['SendInvoiceRequest']
+export type KsefSendInvoiceResponse = Schemas['SendInvoiceResponse']
+export type KsefEncryptionInfo = Schemas['EncryptionInfo']
+export type KsefFormCode = Schemas['FormCode']
+
 // Generic shared
 export type { components, paths, operations } from './ksef-api.js'
 

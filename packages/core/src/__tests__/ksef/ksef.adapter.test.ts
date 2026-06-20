@@ -27,6 +27,7 @@ function createMockClient(): KsefClient {
     }),
     sendInvoice: vi.fn().mockResolvedValue({
       ksefReferenceNumber: 'KSEF-REF-002',
+      onlineSessionReferenceNumber: 'ONLINE-SESSION-001',
       timestamp: '2026-03-01T10:00:00Z',
     }),
     getUpo: vi.fn().mockResolvedValue({
@@ -62,7 +63,7 @@ describe('KsefAdapterImpl', () => {
     it('closes session', async () => {
       await adapter.initSession()
       await adapter.closeSession()
-      expect(client.terminateSession).toHaveBeenCalledWith('test-token-123')
+      expect(client.terminateSession).toHaveBeenCalledWith('test-token-123', undefined)
       expect(adapter.getSession()).toBeNull()
     })
 
@@ -104,6 +105,29 @@ describe('KsefAdapterImpl', () => {
       expect(invoices[0]!.rawXml).toBe('<Faktura/>')
       expect(invoices[0]!.currency).toBe('PLN')
       expect(invoices[0]!.id).toBeDefined()
+    })
+
+    it('preserves currency from API response', async () => {
+      client.fetchInvoices = vi.fn().mockResolvedValueOnce({
+        invoices: [
+          {
+            ksefReferenceNumber: 'KSEF-EUR-001',
+            invoiceNumber: 'FV/EUR/2026',
+            subjectNip: '5213456784',
+            subjectName: 'TECHSOLUTIONS SP Z OO',
+            invoicingDate: '2026-03-01',
+            xml: '',
+            currency: 'EUR',
+          },
+        ],
+        total: 1,
+      })
+      await adapter.initSession()
+      const invoices = await adapter.fetchInvoices({
+        from: '2026-03-01',
+        to: '2026-03-31',
+      })
+      expect(invoices[0]!.currency).toBe('EUR')
     })
 
     it('passes optional params', async () => {
@@ -150,21 +174,23 @@ describe('KsefAdapterImpl', () => {
   })
 
   describe('getUpo', () => {
-    it('lazily initializes session on first call', async () => {
+    it('lazily initializes session when sendInvoice called first', async () => {
       expect(adapter.getSession()).toBeNull()
-      await adapter.getUpo('KSEF-REF-001')
+      await adapter.sendInvoice({ xml: '<Faktura/>', nip: '5213456784' })
       expect(client.initSession).toHaveBeenCalledTimes(1)
     })
 
-    it('fetches UPO', async () => {
+    it('fetches UPO after sending invoice', async () => {
       await adapter.initSession()
-      const result = await adapter.getUpo('KSEF-REF-001')
+      await adapter.sendInvoice({ xml: '<Faktura/>', nip: '5213456784' })
+      const result = await adapter.getUpo('KSEF-REF-002')
 
       expect(client.getUpo).toHaveBeenCalledWith({
         token: 'test-token-123',
-        ksefReferenceNumber: 'KSEF-REF-001',
+        ksefReferenceNumber: 'KSEF-REF-002',
+        onlineSessionReferenceNumber: 'ONLINE-SESSION-001',
       })
-      expect(result.ksefReference).toBe('KSEF-REF-001')
+      expect(result.ksefReference).toBe('KSEF-REF-002')
       expect(result.upoXml).toBe('<UPO/>')
       expect(result.status).toBe('confirmed')
     })

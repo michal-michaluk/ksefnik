@@ -35,5 +35,10 @@ export const PATHS = {
     `/sessions/${assertSafeReference(sessionRef, 'sessionReferenceNumber')}/invoices/${assertSafeReference(invoiceRef, 'invoiceReferenceNumber')}`,
   invoiceUpoByKsefNumber: (sessionRef: string, ksefNumber: string): string =>
     `/sessions/${assertSafeReference(sessionRef, 'sessionReferenceNumber')}/invoices/ksef/${assertSafeReference(ksefNumber, 'ksefNumber')}/upo`,
+  sessionsOnline: '/sessions/online',
+  sessionClose: (referenceNumber: string): string =>
+    `/sessions/online/${assertSafeReference(referenceNumber, 'referenceNumber')}/close`,
+  sessionSendInvoice: (referenceNumber: string): string =>
+    `/sessions/online/${assertSafeReference(referenceNumber, 'referenceNumber')}/invoices`,
   publicKeyCertificates: '/security/public-key-certificates',
 } as const

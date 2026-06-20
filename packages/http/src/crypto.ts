@@ -1,4 +1,4 @@
-import { constants, createPublicKey, publicEncrypt } from 'node:crypto'
+import { constants, createPublicKey, publicEncrypt, randomBytes, createCipheriv, createHash } from 'node:crypto'
 
 /**
  * Encrypts a payload with RSA-OAEP SHA-256 using the MF public key.
@@ -38,4 +38,21 @@ export function buildEncryptedToken(
   publicKeyPemOrCert: string,
 ): string {
   return rsaOaepEncrypt(`${ksefToken}|${timestampMs}`, publicKeyPemOrCert)
+}
+
+export function generateAesKey(): { key: Buffer; iv: Buffer } {
+  return { key: randomBytes(32), iv: randomBytes(16) }
+}
+
+export function encryptAes256Cbc(plaintext: Buffer, key: Buffer, iv: Buffer): Buffer {
+  const cipher = createCipheriv('aes-256-cbc', key, iv)
+  return Buffer.concat([cipher.update(plaintext), cipher.final()])
+}
+
+export function sha256Base64(data: Buffer): string {
+  return createHash('sha256').update(data).digest('base64')
+}
+
+export function encryptSymmetricKeyWithRsaOaep(symmetricKey: Buffer, publicKeyPem: string): string {
+  return rsaOaepEncrypt(symmetricKey, publicKeyPem)
 }

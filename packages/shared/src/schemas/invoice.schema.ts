@@ -19,7 +19,7 @@ export const InvoiceSchema = z.object({
   grossAmount: z.number().int().nonnegative(),
   netAmount: z.number().int().positive().optional(),
   vatAmount: z.number().int().nonnegative().optional(),
-  currency: z.literal('PLN'),
+  currency: z.string().min(3).max(3),
   issueDate: z.string().date(),
   salesDate: z.string().date().optional(),
   dueDate: z.string().date().optional(),

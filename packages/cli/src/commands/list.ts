@@ -4,14 +4,15 @@ import { KsefAuthError } from '@ksefnik/http'
 import { resolveAdapter, resolveConfig, type CliGlobalOpts } from '../utils/config.js'
 import { output } from '../utils/output.js'
 
-export function registerFetchCommand(program: Command): void {
+export function registerListCommand(program: Command): void {
   program
-    .command('fetch')
-    .description('Fetch invoices from KSeF (buyer role)')
+    .command('list')
+    .description('Fetch invoices from KSeF (seller role)')
     .requiredOption('--from <date>', 'Start date (YYYY-MM-DD)')
     .requiredOption('--to <date>', 'End date (YYYY-MM-DD)')
     .option('--format <format>', 'Output format: json|table', 'json')
-    .action(async (opts: { from: string; to: string; format: string }) => {
+    .option('--include-xml', 'Fetch full invoice XML body', false)
+    .action(async (opts: { from: string; to: string; format: string; includeXml: boolean }) => {
       const globalOpts = program.opts<CliGlobalOpts>()
       const config = resolveConfig(globalOpts)
       const adapter = resolveAdapter(globalOpts, config)
@@ -22,6 +23,8 @@ export function registerFetchCommand(program: Command): void {
           from: opts.from,
           to: opts.to,
           nip: config.nip || undefined,
+          subjectType: 'Subject1',
+          includeXml: opts.includeXml,
         })
         output(invoices, opts.format as 'json' | 'table')
       } catch (error) {

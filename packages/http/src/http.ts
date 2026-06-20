@@ -2,7 +2,15 @@ import { KsefApiError, KsefAuthError, KsefRateLimitError } from './errors.js'
 
 export interface RequestOptions {
   method: 'GET' | 'POST' | 'DELETE'
-  path: string
+  /**
+   * API path relative to baseUrl. Mutually exclusive with `url`.
+   */
+  path?: string
+  /**
+   * Absolute URL override (e.g. pre-signed download URL).
+   * When set, `path` and `query` are ignored.
+   */
+  url?: string
   query?: Record<string, string | number | undefined>
   headers?: Record<string, string>
   body?: unknown
@@ -76,7 +84,10 @@ export class HttpClient {
   }
 
   async request<T = unknown>(options: RequestOptions): Promise<T> {
-    const url = buildUrl(this.opts.baseUrl, options.path, options.query)
+    if (!options.url && !options.path) {
+      throw new Error('HttpClient.request: either path or url must be provided')
+    }
+    const url = options.url ?? buildUrl(this.opts.baseUrl, options.path!, options.query)
     const headers: Record<string, string> = {
       Accept: 'application/json',
       'User-Agent': this.userAgent,

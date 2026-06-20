@@ -82,7 +82,7 @@ function rowToInvoice(row: Record<string, unknown>): Invoice {
     grossAmount: row['gross_amount'] as number,
     ...(row['net_amount'] != null && { netAmount: row['net_amount'] as number }),
     ...(row['vat_amount'] != null && { vatAmount: row['vat_amount'] as number }),
-    currency: 'PLN',
+    currency: (row['currency'] as string) ?? 'PLN',
     issueDate: row['issue_date'] as string,
     ...(row['sales_date'] != null && { salesDate: row['sales_date'] as string }),
     ...(row['due_date'] != null && { dueDate: row['due_date'] as string }),

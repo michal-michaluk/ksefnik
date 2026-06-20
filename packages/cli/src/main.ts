@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+declare const CLI_VERSION: string
 import { Command } from 'commander'
 import { registerFetchCommand } from './commands/fetch.js'
 import { registerSendCommand } from './commands/send.js'
@@ -6,6 +7,7 @@ import { registerBankCommand } from './commands/bank.js'
 import { registerReconcileCommand } from './commands/reconcile.js'
 import { registerValidateCommand } from './commands/validate.js'
 import { registerMcpCommand } from './commands/mcp.js'
+import { registerListCommand } from './commands/list.js'
 
 export function createProgram(): Command {
   const program = new Command()
@@ -13,7 +15,7 @@ export function createProgram(): Command {
   program
     .name('ksefnik')
     .description('KSeF reconciliation CLI')
-    .version('0.0.1')
+    .version(CLI_VERSION)
     .option('--nip <nip>', 'NIP number')
     .option('--env <environment>', 'KSeF environment: production|demo|test (default: env KSEFNIK_ENV or test)')
     .option('--token <token>', 'KSeF API token')
@@ -30,6 +32,7 @@ export function createProgram(): Command {
   registerReconcileCommand(program)
   registerValidateCommand(program)
   registerMcpCommand(program)
+  registerListCommand(program)
 
   return program
 }
