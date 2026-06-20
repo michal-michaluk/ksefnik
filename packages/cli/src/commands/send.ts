@@ -54,7 +54,7 @@ export function registerSendCommand(program: Command): void {
             console.log(`UPO status: ${upo.status}`)
             console.log(`UPO saved: ${upoPath}`)
           } else {
-            output({ ...upo, upoPath })
+            output({ ksefReference: result.ksefReference, status: upo.status, upoPath })
           }
         } else if (opts.format === 'text') {
           console.log(`UPO status: ${upo?.status ?? 'unavailable'}`)
