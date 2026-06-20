@@ -61,7 +61,7 @@ export class KsefAdapterImpl implements KsefAdapter {
       sellerNIP: raw.subjectNip,
       buyerNIP: raw.buyerNip,
       grossAmount: raw.grossAmountGrosze ?? 0,
-      currency: 'PLN' as const,
+      currency: raw.currency ?? 'PLN',
       issueDate: raw.invoicingDate,
       ksefReference: raw.ksefReferenceNumber,
       sellerName: raw.subjectName,

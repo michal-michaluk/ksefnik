@@ -106,6 +106,29 @@ describe('KsefAdapterImpl', () => {
       expect(invoices[0]!.id).toBeDefined()
     })
 
+    it('preserves currency from API response', async () => {
+      client.fetchInvoices = vi.fn().mockResolvedValueOnce({
+        invoices: [
+          {
+            ksefReferenceNumber: 'KSEF-EUR-001',
+            invoiceNumber: 'FV/EUR/2026',
+            subjectNip: '5213456784',
+            subjectName: 'TECHSOLUTIONS SP Z OO',
+            invoicingDate: '2026-03-01',
+            xml: '',
+            currency: 'EUR',
+          },
+        ],
+        total: 1,
+      })
+      await adapter.initSession()
+      const invoices = await adapter.fetchInvoices({
+        from: '2026-03-01',
+        to: '2026-03-31',
+      })
+      expect(invoices[0]!.currency).toBe('EUR')
+    })
+
     it('passes optional params', async () => {
       await adapter.initSession()
       await adapter.fetchInvoices({
