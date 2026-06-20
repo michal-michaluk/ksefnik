@@ -29,7 +29,7 @@ export function registerSendCommand(program: Command): void {
     .command('send <filePath>')
     .description('Send invoice XML to KSeF')
     .option('--format <format>', 'Output format: json|text', 'json')
-    .option('--upo', 'Fetch UPO after sending (use --no-upo to skip)', true)
+    .option('--no-upo', 'Skip fetching UPO after sending')
     .option('--save-upo <path>', 'Save UPO XML to file (default: {invoice}.upo.xml)')
     .action(async (filePath: string, opts: { format: string; upo: boolean; saveUpo?: string }) => {
       const globalOpts = program.opts<CliGlobalOpts>()
@@ -54,7 +54,7 @@ export function registerSendCommand(program: Command): void {
           writeFileSync(upoPath, upo.upoXml, 'utf-8')
           if (opts.format === 'text') {
             console.log(`UPO status: ${upo.status}`)
-            console.log(`UPO saved: ${upoPath} (${upo.upoXml.length} bytes)`)
+            console.log(`UPO saved: ${upoPath}`)
           } else {
             output({ ...upo, upoPath })
           }
