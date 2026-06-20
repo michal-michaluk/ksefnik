@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+declare const CLI_VERSION: string
 import { Command } from 'commander'
 import { registerFetchCommand } from './commands/fetch.js'
 import { registerSendCommand } from './commands/send.js'
@@ -14,7 +15,7 @@ export function createProgram(): Command {
   program
     .name('ksefnik')
     .description('KSeF reconciliation CLI')
-    .version('0.0.1')
+    .version(CLI_VERSION)
     .option('--nip <nip>', 'NIP number')
     .option('--env <environment>', 'KSeF environment: production|demo|test (default: env KSEFNIK_ENV or test)')
     .option('--token <token>', 'KSeF API token')

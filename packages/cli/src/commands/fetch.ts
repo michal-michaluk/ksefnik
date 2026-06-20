@@ -7,7 +7,7 @@ import { output } from '../utils/output.js'
 export function registerFetchCommand(program: Command): void {
   program
     .command('fetch')
-    .description('Fetch invoices from KSeF')
+    .description('Fetch invoices from KSeF (buyer role)')
     .requiredOption('--from <date>', 'Start date (YYYY-MM-DD)')
     .requiredOption('--to <date>', 'End date (YYYY-MM-DD)')
     .option('--format <format>', 'Output format: json|table', 'json')

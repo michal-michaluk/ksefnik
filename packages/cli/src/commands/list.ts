@@ -7,7 +7,7 @@ import { output } from '../utils/output.js'
 export function registerListCommand(program: Command): void {
   program
     .command('list')
-    .description('List invoices you issued (seller role)')
+    .description('Fetch invoices from KSeF (seller role)')
     .requiredOption('--from <date>', 'Start date (YYYY-MM-DD)')
     .requiredOption('--to <date>', 'End date (YYYY-MM-DD)')
     .option('--format <format>', 'Output format: json|table', 'json')
