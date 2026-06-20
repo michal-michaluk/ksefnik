@@ -30,7 +30,7 @@ export function registerSendCommand(program: Command): void {
     .description('Send invoice XML to KSeF')
     .option('--format <format>', 'Output format: json|text', 'json')
     .option('--upo', 'Fetch UPO after sending (use --no-upo to skip)', true)
-    .option('--save-upo <path>', 'Save UPO XML to file')
+    .option('--save-upo <path>', 'Save UPO XML to file (default: {invoice}.upo.xml)')
     .action(async (filePath: string, opts: { format: string; upo: boolean; saveUpo?: string }) => {
       const globalOpts = program.opts<CliGlobalOpts>()
       const config = resolveConfig(globalOpts)
@@ -49,16 +49,14 @@ export function registerSendCommand(program: Command): void {
 
       if (opts.upo) {
         const upo = await fetchUpoWithRetry(ksef, result.ksefReference)
-        if (upo) {
-          if (opts.saveUpo && upo.upoXml) {
-            writeFileSync(opts.saveUpo, upo.upoXml, 'utf-8')
-          }
+        if (upo && upo.upoXml) {
+          const upoPath = opts.saveUpo ?? filePath.replace(/\.[^/.]+$/, '') + '.upo.xml'
+          writeFileSync(upoPath, upo.upoXml, 'utf-8')
           if (opts.format === 'text') {
             console.log(`UPO status: ${upo.status}`)
-            if (upo.upoXml) console.log(`UPO size: ${upo.upoXml.length} bytes`)
-            if (opts.saveUpo) console.log(`UPO saved: ${opts.saveUpo}`)
+            console.log(`UPO saved: ${upoPath} (${upo.upoXml.length} bytes)`)
           } else {
-            output(upo)
+            output({ ...upo, upoPath })
           }
         } else if (opts.format === 'text') {
           console.log('UPO: unavailable (session may have expired)')
