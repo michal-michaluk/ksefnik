@@ -137,6 +137,11 @@ export class KsefHttpClient implements KsefClient {
   async terminateSession(token: string): Promise<void> {
     const session = decodeSessionToken(token)
     if (!session) return
+    const onlineRef = session.referenceNumber ? this.onlineSessions.get(session.referenceNumber) : undefined
+    if (onlineRef) {
+      await closeOnlineSession(this.http, session.accessToken, onlineRef).catch(() => {})
+      this.onlineSessions.delete(session.referenceNumber)
+    }
     await revokeCurrentSession(this.http, session)
   }
 
@@ -251,14 +256,6 @@ export class KsefHttpClient implements KsefClient {
       this.retryOpts,
     )
 
-    if (process.env['KSEF_DEBUG']) {
-      console.error('[ksef-debug] closing online session...')
-    }
-    closeOnlineSession(this.http, session!.accessToken, openResult.referenceNumber).catch((err: unknown) => {
-      if (process.env['KSEF_DEBUG']) {
-        console.error('[ksef-debug] closeOnlineSession failed (non-fatal):', err instanceof Error ? err.message : err)
-      }
-    })
     if (process.env['KSEF_DEBUG']) {
       console.error('[ksef-debug] returning send result...')
     }

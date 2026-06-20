@@ -7,18 +7,16 @@ import { output } from '../utils/output.js'
 async function fetchUpoWithRetry(
   ksef: ReturnType<typeof createKsefnik>,
   ksefReference: string,
-  maxRetries = 3,
-  delayMs = 2000,
 ): Promise<{ upoXml: string; status: string } | null> {
-  for (let i = 0; i < maxRetries; i++) {
+  for (let i = 0; i < 10; i++) {
     try {
       const upo = await ksef.invoices.getUpo(ksefReference)
-      if (upo.status !== 'pending' || i === maxRetries - 1) {
-        return upo
-      }
-      await new Promise((r) => setTimeout(r, delayMs))
+      if (upo.upoXml) return upo
+      if (i === 9) return upo
+      await new Promise((r) => setTimeout(r, 2000))
     } catch {
-      return null
+      if (i === 9) return null
+      await new Promise((r) => setTimeout(r, 2000))
     }
   }
   return null
@@ -59,7 +57,7 @@ export function registerSendCommand(program: Command): void {
             output({ ...upo, upoPath })
           }
         } else if (opts.format === 'text') {
-          console.log('UPO: unavailable (session may have expired)')
+          console.log(`UPO status: ${upo?.status ?? 'unavailable'}`)
         }
       }
     })
