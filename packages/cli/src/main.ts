@@ -7,6 +7,7 @@ import { registerReconcileCommand } from './commands/reconcile.js'
 import { registerValidateCommand } from './commands/validate.js'
 import { registerMcpCommand } from './commands/mcp.js'
 import { registerListCommand } from './commands/list.js'
+import { registerUpoCommand } from './commands/upo.js'
 
 export function createProgram(): Command {
   const program = new Command()
@@ -32,6 +33,7 @@ export function createProgram(): Command {
   registerValidateCommand(program)
   registerMcpCommand(program)
   registerListCommand(program)
+  registerUpoCommand(program)
 
   return program
 }
