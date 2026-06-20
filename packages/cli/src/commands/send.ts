@@ -4,12 +4,33 @@ import { createKsefnik } from '@ksefnik/core'
 import { resolveAdapter, resolveConfig, type CliGlobalOpts } from '../utils/config.js'
 import { output } from '../utils/output.js'
 
+async function fetchUpoWithRetry(
+  ksef: ReturnType<typeof createKsefnik>,
+  ksefReference: string,
+  maxRetries = 3,
+  delayMs = 2000,
+): Promise<{ upoXml: string; status: string } | null> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const upo = await ksef.invoices.getUpo(ksefReference)
+      if (upo.status !== 'pending' || i === maxRetries - 1) {
+        return upo
+      }
+      await new Promise((r) => setTimeout(r, delayMs))
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 export function registerSendCommand(program: Command): void {
   program
     .command('send <filePath>')
     .description('Send invoice XML to KSeF')
     .option('--format <format>', 'Output format: json|text', 'json')
-    .action(async (filePath: string, opts: { format: string }) => {
+    .option('--upo', 'Fetch UPO after sending (use --no-upo to skip)', true)
+    .action(async (filePath: string, opts: { format: string; upo: boolean }) => {
       const globalOpts = program.opts<CliGlobalOpts>()
       const config = resolveConfig(globalOpts)
       const adapter = resolveAdapter(globalOpts, config)
@@ -23,6 +44,20 @@ export function registerSendCommand(program: Command): void {
         console.log(`Timestamp: ${result.timestamp}`)
       } else {
         output(result)
+      }
+
+      if (opts.upo) {
+        const upo = await fetchUpoWithRetry(ksef, result.ksefReference)
+        if (upo) {
+          if (opts.format === 'text') {
+            console.log(`UPO status: ${upo.status}`)
+            if (upo.upoXml) console.log(`UPO size: ${upo.upoXml.length} bytes`)
+          } else {
+            output(upo)
+          }
+        } else if (opts.format === 'text') {
+          console.log('UPO: unavailable (session may have expired)')
+        }
       }
     })
 }
