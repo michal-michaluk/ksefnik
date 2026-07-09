@@ -16,7 +16,7 @@ describe('CLI smoke tests', () => {
 
   it('has correct version', () => {
     const program = createProgram()
-    expect(program.version()).toBe('0.4.0')
+    expect(program.version()).toBe('0.5.0')
   })
 
   it('has global options', () => {
